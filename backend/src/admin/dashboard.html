@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fleet &amp; Trip India — Super Admin Panel</title>
+  <style>
+    :root {
+      --bg: #0f172a; --surface: #1e293b; --surface2: #273449; --border: #334155;
+      --text: #f8fafc; --muted: #94a3b8; --primary: #3b82f6; --green: #22c55e;
+      --amber: #f59e0b; --red: #ef4444;
+    }
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { margin: 0; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .hidden { display: none !important; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
+    h1 { margin: 0; font-size: 22px; }
+    .btn { background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 10px 16px; font-weight: 600; cursor: pointer; font-size: 14px; }
+    .btn:hover { opacity: 0.9; }
+    .btn-sm { padding: 6px 10px; font-size: 12px; }
+    .btn-green { background: #16a34a; }
+    .btn-amber { background: #d97706; }
+    .btn-red { background: #dc2626; }
+    .btn-ghost { background: var(--surface2); border: 1px solid var(--border); }
+    .login-box { max-width: 400px; margin: 100px auto; background: var(--surface); padding: 28px; border-radius: 14px; border: 1px solid var(--border); }
+    label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; margin-top: 12px; }
+    input, select { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 14px; }
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px; }
+    .kpi { background: var(--surface); padding: 18px; border-radius: 12px; border: 1px solid var(--border); }
+    .kpi-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+    .kpi-val { font-size: 26px; font-weight: 800; margin-top: 6px; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+    .tab { padding: 10px 18px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); cursor: pointer; font-weight: 700; }
+    .tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+    .card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+    .price { font-size: 22px; font-weight: 800; color: var(--green); white-space: nowrap; }
+    .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-top: 1px solid var(--border); font-size: 13px; }
+    .toggle-row input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+    th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+    th { background: var(--surface2); color: var(--muted); text-transform: uppercase; font-size: 11px; }
+    .pill { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+    .pill-ACTIVE { background: rgba(34,197,94,.18); color: #4ade80; }
+    .pill-TRIAL { background: rgba(245,158,11,.18); color: #fbbf24; }
+    .pill-SUSPENDED, .pill-EXPIRED { background: rgba(239,68,68,.18); color: #f87171; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 14px; }
+    .err { color: #f87171; font-size: 13px; margin-top: 8px; }
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
+    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+    .inline-check { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 14px; }
+    .inline-check input { width: 18px; height: 18px; }
+  </style>
+</head>
+<body>
+  <!-- LOGIN VIEW -->
+  <div id="loginView" class="login-box">
+    <h1 style="margin-bottom:6px;">Fleet &amp; Trip Super Admin</h1>
+    <div style="color:var(--muted);font-size:13px;margin-bottom:16px;">Manage SaaS packages, features &amp; fleet owners</div>
+    <label>Admin Phone</label>
+    <input id="loginPhone" value="9999999999" placeholder="9999999999" />
+    <label>Password</label>
+    <input id="loginPass" type="password" placeholder="••••••••" />
+    <div id="loginErr" class="err"></div>
+    <button class="btn" style="width:100%;margin-top:16px;" onclick="login()">Sign In</button>
+  </div>
+
+  <!-- DASHBOARD VIEW -->
+  <div id="appView" class="container hidden">
+    <header>
+      <div>
+        <h1>Fleet &amp; Trip India — Super Admin</h1>
+        <div style="color:var(--muted);font-size:13px;">Multi-Tenant SaaS Packages &amp; Feature Control</div>
+      </div>
+      <button class="btn btn-ghost" onclick="logout()">Logout</button>
+    </header>
+
+    <div class="kpis">
+      <div class="kpi"><div class="kpi-label">Fleet Owners</div><div class="kpi-val" id="kOwners">-</div></div>
+      <div class="kpi"><div class="kpi-label">Active Subscriptions</div><div class="kpi-val" id="kSubs">-</div></div>
+      <div class="kpi"><div class="kpi-label">Total Trucks</div><div class="kpi-val" id="kTrucks">-</div></div>
+      <div class="kpi"><div class="kpi-label">Total Drivers</div><div class="kpi-val" id="kDrivers">-</div></div>
+      <div class="kpi"><div class="kpi-label">Monthly Revenue (MRR)</div><div class="kpi-val" style="color:var(--green)" id="kMrr">-</div></div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" id="tabPlans" onclick="switchTab('plans')">Packages &amp; Features</button>
+      <button class="tab" id="tabOwners" onclick="switchTab('owners')">Fleet Owners &amp; Subscriptions</button>
+    </div>
+
+    <!-- PLANS SECTION -->
+    <div id="plansSection">
+      <div class="card" style="margin-bottom:20px;">
+        <h3 style="margin-top:0;">Create New Subscription Package</h3>
+        <div class="form-grid">
+          <div><label>Plan Name</label><input id="pName" placeholder="e.g. Pro Fleet" /></div>
+          <div><label>Monthly Price (₹)</label><input id="pMonthly" type="number" value="999" /></div>
+          <div><label>Yearly Price (₹)</label><input id="pYearly" type="number" value="9999" /></div>
+          <div><label>Max Trucks</label><input id="pTrucks" type="number" value="10" /></div>
+          <div><label>Max Drivers</label><input id="pDrivers" type="number" value="15" /></div>
+        </div>
+        <button class="btn btn-green" onclick="createPlan()">+ Create Package</button>
+      </div>
+      <div id="plansGrid" class="grid"></div>
+    </div>
+
+    <!-- OWNERS SECTION -->
+    <div id="ownersSection" class="hidden">
+      <div class="card" style="margin-bottom:20px;">
+        <h3 style="margin-top:0;">Onboard New Fleet Owner</h3>
+        <div class="form-grid">
+          <div><label>Owner Name</label><input id="oName" placeholder="Vikram Patel" /></div>
+          <div><label>Mobile Number</label><input id="oPhone" placeholder="9800001111" /></div>
+          <div><label>Password</label><input id="oPass" type="password" placeholder="Min 6 chars" /></div>
+          <div><label>Subscription Plan</label><select id="oPlan"></select></div>
+          <div><label>Validity (Days)</label><input id="oDays" type="number" value="30" /></div>
+        </div>
+        <button class="btn btn-green" onclick="createOwner()">+ Create Owner</button>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Owner</th>
+            <th>Usage</th>
+            <th>Package</th>
+            <th>Status &amp; Expiry</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="ownersTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- EDIT OWNER MODAL -->
+  <div id="editOwnerModal" class="modal-backdrop hidden">
+    <div class="modal">
+      <h3 style="margin-top:0;">Edit Truck Owner</h3>
+      <input type="hidden" id="eoId" />
+      <label>Owner Name</label>
+      <input id="eoName" />
+      <label>Mobile Number</label>
+      <input id="eoPhone" />
+      <label>Email (optional)</label>
+      <input id="eoEmail" type="email" placeholder="owner@example.com" />
+      <label>Reset Password (leave blank to keep existing)</label>
+      <input id="eoPass" type="password" placeholder="New password (min 6 chars)" />
+      <label>Subscription Package</label>
+      <select id="eoPlan"></select>
+      <div class="form-grid" style="margin-top:0;margin-bottom:0;">
+        <div>
+          <label>Subscription Status</label>
+          <select id="eoSubStatus">
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="TRIAL">TRIAL</option>
+            <option value="SUSPENDED">SUSPENDED</option>
+            <option value="EXPIRED">EXPIRED</option>
+          </select>
+        </div>
+        <div>
+          <label>Expiry Date</label>
+          <input id="eoExpiry" type="date" />
+        </div>
+      </div>
+      <label>Payment / Billing Note</label>
+      <input id="eoNote" placeholder="e.g. Paid ₹1,499 via UPI" />
+      <div class="inline-check">
+        <input id="eoActive" type="checkbox" />
+        <span>Account Login Active (uncheck to block login)</span>
+      </div>
+      <div id="eoErr" class="err"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeEditOwner()">Cancel</button>
+        <button class="btn btn-green" onclick="saveEditOwner()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT PLAN MODAL -->
+  <div id="editPlanModal" class="modal-backdrop hidden">
+    <div class="modal">
+      <h3 style="margin-top:0;">Edit Subscription Package</h3>
+      <input type="hidden" id="epId" />
+      <label>Plan Name</label>
+      <input id="epName" />
+      <div class="form-grid" style="margin-bottom:0;">
+        <div><label>Monthly Price (₹)</label><input id="epMonthly" type="number" /></div>
+        <div><label>Yearly Price (₹)</label><input id="epYearly" type="number" /></div>
+      </div>
+      <div class="form-grid" style="margin-bottom:0;">
+        <div><label>Max Trucks</label><input id="epTrucks" type="number" /></div>
+        <div><label>Max Drivers</label><input id="epDrivers" type="number" /></div>
+      </div>
+      <div id="epErr" class="err"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeEditPlan()">Cancel</button>
+        <button class="btn btn-green" onclick="saveEditPlan()">Save Package</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const TOKEN_KEY = 'fleet_super_admin_token';
+    const FEATURES = [
+      ['feature_ocr_vision', 'AI Vision OCR (Odometer & Fuel Bills)'],
+      ['feature_fastag_auto_sync', 'FASTag Auto-Toll Email Sync'],
+      ['feature_emi_tracker', 'Truck EMI Tracker'],
+      ['feature_compliance_vault', 'Compliance & Offline Doc Vault'],
+      ['feature_driver_permissions', 'Granular Driver Permission Toggles'],
+      ['feature_monthly_analytics', 'Monthly Net Profit & Mileage Alerts'],
+    ];
+    let cachedPlans = [];
+    let cachedOwners = [];
+
+    function fmtINR(n) {
+      return '₹' + Number(n || 0).toLocaleString('en-IN');
+    }
+
+    async function api(path, opts = {}) {
+      const token = localStorage.getItem(TOKEN_KEY);
+      const res = await fetch(path, {
+        ...opts,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: 'Bearer ' + token } : {}),
+          ...(opts.headers || {}),
+        },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error?.message || 'Request failed');
+      return data;
+    }
+
+    async function login() {
+      document.getElementById('loginErr').textContent = '';
+      try {
+        const res = await api('/api/auth/super-admin/login', {
+          method: 'POST',
+          body: JSON.stringify({
+            phone: document.getElementById('loginPhone').value.trim(),
+            password: document.getElementById('loginPass').value,
+          }),
+        });
+        localStorage.setItem(TOKEN_KEY, res.token);
+        showApp();
+      } catch (e) {
+        document.getElementById('loginErr').textContent = e.message;
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem(TOKEN_KEY);
+      document.getElementById('appView').classList.add('hidden');
+      document.getElementById('loginView').classList.remove('hidden');
+    }
+
+    function switchTab(tab) {
+      document.getElementById('tabPlans').classList.toggle('active', tab === 'plans');
+      document.getElementById('tabOwners').classList.toggle('active', tab === 'owners');
+      document.getElementById('plansSection').classList.toggle('hidden', tab !== 'plans');
+      document.getElementById('ownersSection').classList.toggle('hidden', tab !== 'owners');
+    }
+
+    async function showApp() {
+      document.getElementById('loginView').classList.add('hidden');
+      document.getElementById('appView').classList.remove('hidden');
+      await refreshAll();
+    }
+
+    async function refreshAll() {
+      try {
+        const [stats, plansRes, ownersRes] = await Promise.all([
+          api('/api/admin/stats'),
+          api('/api/admin/plans'),
+          api('/api/admin/owners'),
+        ]);
+        document.getElementById('kOwners').textContent = stats.total_owners;
+        document.getElementById('kSubs').textContent = stats.active_subscriptions;
+        document.getElementById('kTrucks').textContent = stats.total_trucks;
+        document.getElementById('kDrivers').textContent = stats.total_drivers;
+        document.getElementById('kMrr').textContent = fmtINR(stats.mrr_inr);
+
+        cachedPlans = plansRes.plans;
+        cachedOwners = ownersRes.owners;
+        renderPlans(cachedPlans);
+        renderOwners(cachedOwners);
+      } catch (e) {
+        if (e.message.includes('token') || e.message.includes('Super Admin')) logout();
+      }
+    }
+
+    function renderPlans(plans) {
+      const sel = document.getElementById('oPlan');
+      sel.innerHTML = plans.map(p => `<option value="${p.id}">${p.name} (${fmtINR(p.price_monthly_inr)}/mo)</option>`).join('');
+
+      document.getElementById('plansGrid').innerHTML = plans.map(p => `
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div style="font-size:18px;font-weight:800;">${p.name}</div>
+              <div style="font-size:12px;color:var(--muted);">${p.subscriber_count} subscriber(s) • Max ${p.max_trucks} trucks / ${p.max_drivers} drivers</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="price">${fmtINR(p.price_monthly_inr)}<span style="font-size:12px;color:var(--muted)">/mo</span></div>
+              <button class="btn btn-sm btn-ghost" style="margin-top:6px;" onclick="openEditPlan('${p.id}')">Edit Plan</button>
+            </div>
+          </div>
+          ${FEATURES.map(([key, label]) => `
+            <div class="toggle-row">
+              <span>${label}</span>
+              <input type="checkbox" ${p[key] ? 'checked' : ''} onchange="togglePlanFeature('${p.id}','${key}',this.checked)" />
+            </div>
+          `).join('')}
+        </div>
+      `).join('');
+    }
+
+    function openEditPlan(planId) {
+      const p = cachedPlans.find(x => x.id === planId);
+      if (!p) return;
+      document.getElementById('epId').value = p.id;
+      document.getElementById('epName').value = p.name;
+      document.getElementById('epMonthly').value = p.price_monthly_inr;
+      document.getElementById('epYearly').value = p.price_yearly_inr;
+      document.getElementById('epTrucks').value = p.max_trucks;
+      document.getElementById('epDrivers').value = p.max_drivers;
+      document.getElementById('epErr').textContent = '';
+      document.getElementById('editPlanModal').classList.remove('hidden');
+    }
+
+    function closeEditPlan() {
+      document.getElementById('editPlanModal').classList.add('hidden');
+    }
+
+    async function saveEditPlan() {
+      const id = document.getElementById('epId').value;
+      document.getElementById('epErr').textContent = '';
+      try {
+        await api('/api/admin/plans/' + id, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            name: document.getElementById('epName').value.trim(),
+            price_monthly_inr: Number(document.getElementById('epMonthly').value),
+            price_yearly_inr: Number(document.getElementById('epYearly').value),
+            max_trucks: Number(document.getElementById('epTrucks').value),
+            max_drivers: Number(document.getElementById('epDrivers').value),
+          }),
+        });
+        closeEditPlan();
+        await refreshAll();
+      } catch (e) {
+        document.getElementById('epErr').textContent = e.message;
+      }
+    }
+
+    async function togglePlanFeature(planId, key, value) {
+      await api('/api/admin/plans/' + planId, {
+        method: 'PATCH',
+        body: JSON.stringify({ [key]: value }),
+      });
+      await refreshAll();
+    }
+
+    async function createPlan() {
+      const name = document.getElementById('pName').value.trim();
+      if (!name) return alert('Enter plan name');
+      await api('/api/admin/plans', {
+        method: 'POST',
+        body: JSON.stringify({
+          name,
+          price_monthly_inr: Number(document.getElementById('pMonthly').value),
+          price_yearly_inr: Number(document.getElementById('pYearly').value),
+          max_trucks: Number(document.getElementById('pTrucks').value),
+          max_drivers: Number(document.getElementById('pDrivers').value),
+        }),
+      });
+      document.getElementById('pName').value = '';
+      await refreshAll();
+    }
+
+    function renderOwners(owners) {
+      document.getElementById('ownersTable').innerHTML = owners.map(o => {
+        const sub = o.subscription;
+        const exp = sub ? sub.expires_at.slice(0, 10) : 'None';
+        const status = sub ? sub.status : 'EXPIRED';
+        const planOptions = cachedPlans.map(p =>
+          `<option value="${p.id}" ${sub && sub.plan_id === p.id ? 'selected' : ''}>${p.name}</option>`
+        ).join('');
+        return `
+          <tr>
+            <td>
+              <strong>${o.name}</strong> ${o.is_active ? '' : '<span class="pill pill-SUSPENDED">DISABLED</span>'}<br/>
+              <span style="color:var(--muted)">${o.phone}${o.email ? ' • ' + o.email : ''}</span>
+            </td>
+            <td>Trucks: ${o.trucks_count}/${sub ? sub.max_trucks : 0}<br/>Drivers: ${o.drivers_count}/${sub ? sub.max_drivers : 0}</td>
+            <td><select onchange="updateSub('${o.id}', { plan_id: this.value })">${planOptions}</select></td>
+            <td><span class="pill pill-${status}">${status}</span><br/><span style="color:var(--muted)">Exp: ${exp}</span></td>
+            <td style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn btn-sm btn-amber" onclick="openEditOwner('${o.id}')">Edit</button>
+              <button class="btn btn-sm btn-green" onclick="updateSub('${o.id}', { extend_days: 30, status: 'ACTIVE' })">+30d</button>
+              <button class="btn btn-sm ${status === 'SUSPENDED' ? 'btn-green' : 'btn-red'}"
+                onclick="updateSub('${o.id}', { status: '${status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'}' })">
+                ${status === 'SUSPENDED' ? 'Activate' : 'Suspend'}
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function openEditOwner(ownerId) {
+      const o = cachedOwners.find(x => x.id === ownerId);
+      if (!o) return;
+      document.getElementById('eoId').value = o.id;
+      document.getElementById('eoName').value = o.name;
+      document.getElementById('eoPhone').value = o.phone;
+      document.getElementById('eoEmail').value = o.email || '';
+      document.getElementById('eoPass').value = '';
+      document.getElementById('eoActive').checked = Boolean(o.is_active);
+      document.getElementById('eoPlan').innerHTML = cachedPlans.map(p =>
+        `<option value="${p.id}" ${o.subscription && o.subscription.plan_id === p.id ? 'selected' : ''}>${p.name} (${fmtINR(p.price_monthly_inr)}/mo)</option>`
+      ).join('');
+      document.getElementById('eoSubStatus').value = o.subscription ? o.subscription.status : 'ACTIVE';
+      document.getElementById('eoExpiry').value = o.subscription ? o.subscription.expires_at.slice(0, 10) : new Date().toISOString().slice(0, 10);
+      document.getElementById('eoNote').value = (o.subscription && o.subscription.payment_note) || '';
+      document.getElementById('eoErr').textContent = '';
+      document.getElementById('editOwnerModal').classList.remove('hidden');
+    }
+
+    function closeEditOwner() {
+      document.getElementById('editOwnerModal').classList.add('hidden');
+    }
+
+    async function saveEditOwner() {
+      const id = document.getElementById('eoId').value;
+      document.getElementById('eoErr').textContent = '';
+      try {
+        await api('/api/admin/owners/' + id, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            name: document.getElementById('eoName').value.trim(),
+            phone: document.getElementById('eoPhone').value.trim(),
+            email: document.getElementById('eoEmail').value.trim(),
+            password: document.getElementById('eoPass').value,
+            is_active: document.getElementById('eoActive').checked,
+          }),
+        });
+
+        const expiryDateVal = document.getElementById('eoExpiry').value;
+        await api('/api/admin/owners/' + id + '/subscription', {
+          method: 'PATCH',
+          body: JSON.stringify({
+            plan_id: document.getElementById('eoPlan').value,
+            status: document.getElementById('eoSubStatus').value,
+            expires_at: expiryDateVal ? new Date(expiryDateVal + 'T23:59:59Z').toISOString() : undefined,
+            payment_note: document.getElementById('eoNote').value.trim(),
+          }),
+        });
+
+        closeEditOwner();
+        await refreshAll();
+      } catch (e) {
+        document.getElementById('eoErr').textContent = e.message;
+      }
+    }
+
+    async function createOwner() {
+      try {
+        await api('/api/admin/owners', {
+          method: 'POST',
+          body: JSON.stringify({
+            name: document.getElementById('oName').value.trim(),
+            phone: document.getElementById('oPhone').value.trim(),
+            password: document.getElementById('oPass').value,
+            plan_id: document.getElementById('oPlan').value,
+            duration_days: Number(document.getElementById('oDays').value),
+          }),
+        });
+        document.getElementById('oName').value = '';
+        document.getElementById('oPhone').value = '';
+        document.getElementById('oPass').value = '';
+        await refreshAll();
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    async function updateSub(ownerId, patch) {
+      await api('/api/admin/owners/' + ownerId + '/subscription', {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      });
+      await refreshAll();
+    }
+
+    if (localStorage.getItem(TOKEN_KEY)) showApp();
+  </script>
+</body>
+</html>

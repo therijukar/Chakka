@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build outputs
+dist/
+build/
+.expo/
+web-build/
+*.apk
+*.aab
+fleet-trip-india.apk
+
+# Android / iOS builds
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/android/local.properties
+mobile/android/.idea/
+mobile/ios/build/
+mobile/ios/Pods/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+backend/.env
+mobile/.env
+
+# Uploads & local storage
+backend/uploads/
+uploads/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS & Editor
+.DS_Store
+.vscode/
+.idea/
+
+# Prisma
+backend/prisma/*.db

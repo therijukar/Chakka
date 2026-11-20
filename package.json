@@ -1,0 +1,20 @@
+{
+  "name": "fleet-trip-india",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Offline-first, multi-language, trip-based truck fleet management system for India",
+  "workspaces": [
+    "backend"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=backend",
+    "build:backend": "npm run build --workspace=backend",
+    "test:backend": "npm run test --workspace=backend",
+    "db:generate": "npm run db:generate --workspace=backend",
+    "db:migrate": "npm run db:migrate --workspace=backend",
+    "db:push": "npm run db:push --workspace=backend",
+    "db:seed": "npm run db:seed --workspace=backend",
+    "db:studio": "npm run db:studio --workspace=backend",
+    "dev:mobile": "npm --prefix mobile start"
+  }
+}

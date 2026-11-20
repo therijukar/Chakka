@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Fleet & Trip India",
+    "slug": "fleet-trip-india",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Capture live odometer readings and petrol pump fuel bills.",
+        "NSLocationWhenInUseUsageDescription": "Record GPS coordinates when starting and ending trips."
+      }
+    },
+    "android": {
+      "package": "in.fleetapp.driver",
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Fleet App to capture live odometer and fuel bill photos."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Fleet App to record GPS location on trip start and end."
+        }
+      ]
+    ]
+  }
+}

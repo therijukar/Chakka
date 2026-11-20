@@ -1,0 +1,448 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  OWNER
+  DRIVER
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  EXPIRED
+  SUSPENDED
+}
+
+enum LanguageCode {
+  en
+  hi
+  bn
+  mr
+  ta
+}
+
+enum TripStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CLOSED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum SyncEntityType {
+  TRIP
+  EXPENSE
+  DOCUMENT
+}
+
+enum SyncStatus {
+  PENDING
+  SYNCING
+  SYNCED
+  FAILED
+}
+
+enum DocumentType {
+  RC_BOOK
+  INSURANCE
+  ROAD_TAX
+  ALL_INDIA_PERMIT
+  STATE_PERMIT
+  FITNESS
+  PUC
+  DRIVING_LICENSE
+  AADHAAR
+  OTHER
+}
+
+model User {
+  id                String       @id @default(uuid()) @db.Char(36)
+  role              UserRole
+  name              String       @db.VarChar(120)
+  phone             String       @unique @db.VarChar(20)
+  email             String?      @unique @db.VarChar(180)
+  passwordHash      String?      @map("password_hash") @db.VarChar(255)
+  pinHash           String?      @map("pin_hash") @db.VarChar(255)
+  language          LanguageCode @default(en)
+  ownerId           String?      @map("owner_id") @db.Char(36)
+  assignedVehicleId String?      @map("assigned_vehicle_id") @db.Char(36)
+  inboundTollEmail  String?      @unique @map("inbound_toll_email") @db.VarChar(180)
+  isActive          Boolean      @default(true) @map("is_active")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  // Self-relation: Owner -> Drivers
+  owner   User?  @relation("OwnerDrivers", fields: [ownerId], references: [id], onDelete: SetNull)
+  drivers User[] @relation("OwnerDrivers")
+
+  // Assigned vehicle (for drivers)
+  assignedVehicle Vehicle? @relation("AssignedDrivers", fields: [assignedVehicleId], references: [id], onDelete: SetNull)
+
+  // Owned entities (for owners)
+  ownedVehicles     Vehicle[]            @relation("OwnedVehicles")
+  expenseCategories ExpenseCategory[]
+  ownedTrips        Trip[]               @relation("OwnerTrips")
+  ownedTripPayments TripPayment[]        @relation("OwnerTripPayments")
+  ownedExpenses     Expense[]            @relation("OwnerExpenses")
+  ownedTolls        Toll[]
+  ownedEmis         VehicleEmi[]
+  ownedDocuments    VehicleDocument[]    @relation("OwnerDocuments")
+  subscription      OwnerSubscription?
+  ownerAdvances     DriverAdvanceEntry[] @relation("OwnerAdvanceEntries")
+
+  // Driver-specific relations
+  permissions     DriverPermission?
+  driverTrips     Trip[]               @relation("DriverTrips")
+  driverExpenses  Expense[]            @relation("DriverExpenses")
+  approvedExpenses Expense[]           @relation("ApprovedByUser")
+  driverDocuments VehicleDocument[]    @relation("DriverDocuments")
+  driverAdvances  DriverAdvanceEntry[] @relation("DriverAdvanceEntries")
+  syncLogs        SyncLog[]
+
+  @@index([ownerId])
+  @@index([assignedVehicleId])
+  @@map("users")
+}
+
+model DriverPermission {
+  id                       String   @id @default(uuid()) @db.Char(36)
+  driverId                 String   @unique @map("driver_id") @db.Char(36)
+  canStartEndTrip          Boolean  @default(true) @map("can_start_end_trip")
+  canAddFuel               Boolean  @default(true) @map("can_add_fuel")
+  canAddOtherExpenses      Boolean  @default(true) @map("can_add_other_expenses")
+  canViewOwnBataAndAdvance Boolean  @default(true) @map("can_view_own_bata_and_advance")
+  canViewTollHistory       Boolean  @default(false) @map("can_view_toll_history")
+  canViewDocVault          Boolean  @default(true) @map("can_view_doc_vault")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  driver User @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("driver_permissions")
+}
+
+model Vehicle {
+  id                  String   @id @default(uuid()) @db.Char(36)
+  ownerId             String   @map("owner_id") @db.Char(36)
+  vehicleNumber       String   @map("vehicle_number") @db.VarChar(20)
+  makeModel           String?  @map("make_model") @db.VarChar(120)
+  baselineMileageKmpl Decimal  @default(4.00) @map("baseline_mileage_kmpl") @db.Decimal(12, 2)
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  owner           User              @relation("OwnedVehicles", fields: [ownerId], references: [id], onDelete: Cascade)
+  assignedDrivers User[]            @relation("AssignedDrivers")
+  trips           Trip[]
+  expenses        Expense[]
+  tolls           Toll[]
+  emis            VehicleEmi[]
+  documents       VehicleDocument[]
+
+  @@unique([ownerId, vehicleNumber])
+  @@index([vehicleNumber])
+  @@map("vehicles")
+}
+
+model Trip {
+  id                    String     @id @default(uuid()) @db.Char(36)
+  clientId              String     @unique @map("client_id") @db.VarChar(64)
+  ownerId               String     @map("owner_id") @db.Char(36)
+  vehicleId             String     @map("vehicle_id") @db.Char(36)
+  driverId              String     @map("driver_id") @db.Char(36)
+  origin                String     @db.VarChar(180)
+  destination           String     @db.VarChar(180)
+  partyName             String?    @map("party_name") @db.VarChar(180)
+  agreedFreight         Decimal    @default(0.00) @map("agreed_freight") @db.Decimal(12, 2)
+  advanceReceived       Decimal    @default(0.00) @map("advance_received") @db.Decimal(12, 2)
+  balancePending        Decimal    @default(0.00) @map("balance_pending") @db.Decimal(12, 2)
+  driverAdvance         Decimal    @default(0.00) @map("driver_advance") @db.Decimal(12, 2)
+  driverBata            Decimal    @default(0.00) @map("driver_bata") @db.Decimal(12, 2)
+  startOdometerKm       Decimal?   @map("start_odometer_km") @db.Decimal(12, 2)
+  endOdometerKm         Decimal?   @map("end_odometer_km") @db.Decimal(12, 2)
+  startOdometerPhotoUrl String?    @map("start_odometer_photo_url") @db.VarChar(512)
+  endOdometerPhotoUrl   String?    @map("end_odometer_photo_url") @db.VarChar(512)
+  startLat              Decimal?   @map("start_lat") @db.Decimal(10, 7)
+  startLng              Decimal?   @map("start_lng") @db.Decimal(10, 7)
+  endLat                Decimal?   @map("end_lat") @db.Decimal(10, 7)
+  endLng                Decimal?   @map("end_lng") @db.Decimal(10, 7)
+  startedAt             DateTime?  @map("started_at")
+  endedAt               DateTime?  @map("ended_at")
+  status                TripStatus @default(PLANNED)
+  notes                 String?    @db.Text
+  createdAt             DateTime   @default(now()) @map("created_at")
+  updatedAt             DateTime   @updatedAt @map("updated_at")
+
+  owner          User                 @relation("OwnerTrips", fields: [ownerId], references: [id], onDelete: Cascade)
+  vehicle        Vehicle              @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  driver         User                 @relation("DriverTrips", fields: [driverId], references: [id], onDelete: Restrict)
+  expenses       Expense[]
+  tolls          Toll[]
+  payments       TripPayment[]
+  driverAdvances DriverAdvanceEntry[]
+
+  @@index([ownerId, status])
+  @@index([vehicleId, status])
+  @@index([driverId, status])
+  @@map("trips")
+}
+
+model TripPayment {
+  id          String   @id @default(uuid()) @db.Char(36)
+  tripId      String   @map("trip_id") @db.Char(36)
+  ownerId     String   @map("owner_id") @db.Char(36)
+  amount      Decimal  @db.Decimal(12, 2)
+  paymentMode String   @default("CASH") @map("payment_mode") @db.VarChar(30)
+  note        String?  @db.VarChar(255)
+  receivedAt  DateTime @default(now()) @map("received_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  trip  Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  owner User @relation("OwnerTripPayments", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+  @@index([ownerId])
+  @@map("trip_payments")
+}
+
+enum AdvanceEntryType {
+  GIVEN
+  RETURNED
+}
+
+model DriverAdvanceEntry {
+  id        String           @id @default(uuid()) @db.Char(36)
+  ownerId   String           @map("owner_id") @db.Char(36)
+  driverId  String           @map("driver_id") @db.Char(36)
+  tripId    String?          @map("trip_id") @db.Char(36)
+  type      AdvanceEntryType @default(GIVEN)
+  amount    Decimal          @db.Decimal(12, 2)
+  note      String?          @db.VarChar(255)
+  entryDate DateTime         @default(now()) @map("entry_date")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  owner  User  @relation("OwnerAdvanceEntries", fields: [ownerId], references: [id], onDelete: Cascade)
+  driver User  @relation("DriverAdvanceEntries", fields: [driverId], references: [id], onDelete: Cascade)
+  trip   Trip? @relation(fields: [tripId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId, driverId])
+  @@index([tripId])
+  @@map("driver_advance_entries")
+}
+
+model ExpenseCategory {
+  id         String   @id @default(uuid()) @db.Char(36)
+  ownerId    String   @map("owner_id") @db.Char(36)
+  name       String   @db.VarChar(80)
+  icon       String   @default("receipt") @db.VarChar(60)
+  isFuel     Boolean  @default(false) @map("is_fuel")
+  isSystem   Boolean  @default(false) @map("is_system")
+  isArchived Boolean  @default(false) @map("is_archived")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  owner    User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  expenses Expense[]
+
+  @@unique([ownerId, name])
+  @@map("expense_categories")
+}
+
+model Expense {
+  id              String         @id @default(uuid()) @db.Char(36)
+  clientId        String         @unique @map("client_id") @db.VarChar(64)
+  ownerId         String         @map("owner_id") @db.Char(36)
+  tripId          String?        @map("trip_id") @db.Char(36)
+  vehicleId       String         @map("vehicle_id") @db.Char(36)
+  driverId        String?        @map("driver_id") @db.Char(36)
+  categoryId      String         @map("category_id") @db.Char(36)
+  amount          Decimal        @db.Decimal(12, 2)
+  liters          Decimal?       @db.Decimal(12, 2)
+  ratePerLiter    Decimal?       @map("rate_per_liter") @db.Decimal(12, 2)
+  pumpName        String?        @map("pump_name") @db.VarChar(180)
+  billDate        DateTime?      @map("bill_date")
+  billPhotoUrl    String?        @map("bill_photo_url") @db.VarChar(512)
+  note            String?        @db.Text
+  ocrConfidence   Decimal?       @map("ocr_confidence") @db.Decimal(5, 2)
+  approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
+  rejectionReason String?        @map("rejection_reason") @db.VarChar(255)
+  approvedById    String?        @map("approved_by_id") @db.Char(36)
+  approvedAt      DateTime?      @map("approved_at")
+  expenseDate     DateTime       @default(now()) @map("expense_date")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  owner      User            @relation("OwnerExpenses", fields: [ownerId], references: [id], onDelete: Cascade)
+  trip       Trip?           @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  vehicle    Vehicle         @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  driver     User?           @relation("DriverExpenses", fields: [driverId], references: [id], onDelete: SetNull)
+  category   ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  approvedBy User?           @relation("ApprovedByUser", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([ownerId, approvalStatus])
+  @@index([tripId])
+  @@index([vehicleId])
+  @@index([driverId])
+  @@map("expenses")
+}
+
+model Toll {
+  id               String   @id @default(uuid()) @db.Char(36)
+  ownerId          String   @map("owner_id") @db.Char(36)
+  vehicleId        String?  @map("vehicle_id") @db.Char(36)
+  tripId           String?  @map("trip_id") @db.Char(36)
+  vehicleNumberRaw String   @map("vehicle_number_raw") @db.VarChar(32)
+  tollPlaza        String   @map("toll_plaza") @db.VarChar(200)
+  amount           Decimal  @db.Decimal(12, 2)
+  transactionTime  DateTime @map("transaction_time")
+  bankSource       String?  @map("bank_source") @db.VarChar(40)
+  rawEmailId       String?  @unique @map("raw_email_id") @db.VarChar(180)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  owner   User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  trip    Trip?    @relation(fields: [tripId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId, transactionTime])
+  @@index([vehicleId])
+  @@index([tripId])
+  @@map("tolls")
+}
+
+model SyncLog {
+  id           String         @id @default(uuid()) @db.Char(36)
+  clientId     String         @map("client_id") @db.VarChar(64)
+  userId       String         @map("user_id") @db.Char(36)
+  entityType   SyncEntityType @map("entity_type")
+  status       SyncStatus
+  errorMessage String?        @map("error_message") @db.Text
+  syncedAt     DateTime       @default(now()) @map("synced_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([userId, syncedAt])
+  @@map("sync_logs")
+}
+
+model VehicleEmi {
+  id                 String   @id @default(uuid()) @db.Char(36)
+  ownerId            String   @map("owner_id") @db.Char(36)
+  vehicleId          String   @map("vehicle_id") @db.Char(36)
+  financerName       String   @map("financer_name") @db.VarChar(150)
+  totalLoanAmount    Decimal  @map("total_loan_amount") @db.Decimal(12, 2)
+  monthlyEmiAmount   Decimal  @map("monthly_emi_amount") @db.Decimal(12, 2)
+  totalTenureMonths  Int      @map("total_tenure_months")
+  emisPaid           Int      @default(0) @map("emis_paid")
+  dueDayOfMonth      Int      @map("due_day_of_month")
+  remainingPrincipal Decimal  @map("remaining_principal") @db.Decimal(12, 2)
+  startDate          DateTime @map("start_date")
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  owner    User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  vehicle  Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  payments EmiPayment[]
+
+  @@index([ownerId, isActive])
+  @@index([vehicleId])
+  @@map("vehicle_emis")
+}
+
+model EmiPayment {
+  id          String   @id @default(uuid()) @db.Char(36)
+  emiId       String   @map("emi_id") @db.Char(36)
+  amountPaid  Decimal  @map("amount_paid") @db.Decimal(12, 2)
+  paymentDate DateTime @map("payment_date")
+  receiptUrl  String?  @map("receipt_url") @db.VarChar(512)
+  note        String?  @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  emi VehicleEmi @relation(fields: [emiId], references: [id], onDelete: Cascade)
+
+  @@index([emiId, paymentDate])
+  @@map("emi_payments")
+}
+
+model VehicleDocument {
+  id             String       @id @default(uuid()) @db.Char(36)
+  ownerId        String       @map("owner_id") @db.Char(36)
+  vehicleId      String?      @map("vehicle_id") @db.Char(36)
+  driverId       String?      @map("driver_id") @db.Char(36)
+  docType        DocumentType @map("doc_type")
+  title          String       @db.VarChar(150)
+  documentNumber String?      @map("document_number") @db.VarChar(80)
+  issueDate      DateTime?    @map("issue_date")
+  expiryDate     DateTime?    @map("expiry_date")
+  fileUrl        String       @map("file_url") @db.VarChar(512)
+  fileMimeType   String       @map("file_mime_type") @db.VarChar(100)
+  fileSizeBytes  Int?         @map("file_size_bytes")
+  isActive       Boolean      @default(true) @map("is_active")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  owner   User     @relation("OwnerDocuments", fields: [ownerId], references: [id], onDelete: Cascade)
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  driver  User?    @relation("DriverDocuments", fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, expiryDate])
+  @@index([vehicleId, docType])
+  @@index([driverId, docType])
+  @@map("vehicle_documents")
+}
+
+model SubscriptionPlan {
+  id                       String   @id @default(uuid()) @db.Char(36)
+  name                     String   @unique @db.VarChar(80)
+  slug                     String   @unique @db.VarChar(80)
+  description              String?  @db.VarChar(255)
+  priceMonthlyInr          Decimal  @default(0.00) @map("price_monthly_inr") @db.Decimal(12, 2)
+  priceYearlyInr           Decimal  @default(0.00) @map("price_yearly_inr") @db.Decimal(12, 2)
+  maxTrucks                Int      @default(3) @map("max_trucks")
+  maxDrivers               Int      @default(5) @map("max_drivers")
+  featureOcrVision         Boolean  @default(false) @map("feature_ocr_vision")
+  featureFastagAutoSync    Boolean  @default(false) @map("feature_fastag_auto_sync")
+  featureEmiTracker        Boolean  @default(false) @map("feature_emi_tracker")
+  featureComplianceVault   Boolean  @default(true) @map("feature_compliance_vault")
+  featureDriverPermissions Boolean  @default(true) @map("feature_driver_permissions")
+  featureMonthlyAnalytics  Boolean  @default(false) @map("feature_monthly_analytics")
+  isActive                 Boolean  @default(true) @map("is_active")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  subscriptions OwnerSubscription[]
+
+  @@map("subscription_plans")
+}
+
+model OwnerSubscription {
+  id          String             @id @default(uuid()) @db.Char(36)
+  ownerId     String             @unique @map("owner_id") @db.Char(36)
+  planId      String             @map("plan_id") @db.Char(36)
+  status      SubscriptionStatus @default(TRIAL)
+  startsAt    DateTime           @default(now()) @map("starts_at")
+  expiresAt   DateTime           @map("expires_at")
+  paymentNote String?            @map("payment_note") @db.VarChar(255)
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  owner User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  plan  SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([planId])
+  @@index([status, expiresAt])
+  @@map("owner_subscriptions")
+}
